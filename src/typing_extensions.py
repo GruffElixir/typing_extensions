@@ -4430,11 +4430,21 @@ if not _PEP_696_IMPLEMENTED:
     def _generic_alias_getitem_with_defaults(self, params):
         if not isinstance(params, tuple):
             params = (params,)
+        params = tuple(typing._type_convert(param) for param in params)
 
         for param in self.__parameters__:
             prepare = getattr(param, "__typing_prepare_subst__", None)
-            if prepare is not None:
-                params = prepare(self, params)
+            if prepare is None:
+                continue
+            if type(param).__name__ == "TypeVar":
+                if not getattr(param, "has_default", lambda: False)():
+                    continue
+            elif not (
+                sys.version_info < (3, 11)
+                and type(param).__name__ == "TypeVarTuple"
+            ):
+                continue
+            params = prepare(self, params)
 
         return _generic_alias_getitem(self, params)
 
@@ -4446,11 +4456,21 @@ if not _PEP_696_IMPLEMENTED:
     def _generic_class_getitem_with_defaults(cls, params):
         if not isinstance(params, tuple):
             params = (params,)
+        params = tuple(typing._type_convert(param) for param in params)
 
         for param in getattr(cls, "__parameters__", ()):
             prepare = getattr(param, "__typing_prepare_subst__", None)
-            if prepare is not None:
-                params = prepare(cls, params)
+            if prepare is None:
+                continue
+            if type(param).__name__ == "TypeVar":
+                if not getattr(param, "has_default", lambda: False)():
+                    continue
+            elif not (
+                sys.version_info < (3, 11)
+                and type(param).__name__ == "TypeVarTuple"
+            ):
+                continue
+            params = prepare(cls, params)
 
         return _generic_class_getitem(cls, params)
 
