@@ -4450,7 +4450,15 @@ if not _PEP_696_IMPLEMENTED:
 
     typing._GenericAlias.__getitem__ = _generic_alias_getitem_with_defaults
 
-    _generic_class_getitem = typing.Generic.__dict__["__class_getitem__"].__func__
+    _generic_class_getitem_descriptor = typing.Generic.__dict__["__class_getitem__"]
+    if hasattr(_generic_class_getitem_descriptor, "__func__"):
+        _generic_class_getitem = _generic_class_getitem_descriptor.__func__
+    else:
+        # Python 3.12 stores this as a classmethod descriptor rather than a
+        # classmethod object.  Bind it through the subclass so the original
+        # implementation receives the class being specialized.
+        def _generic_class_getitem(cls, params):
+            return _generic_class_getitem_descriptor.__get__(None, cls)(params)
 
     @typing._tp_cache
     def _generic_class_getitem_with_defaults(cls, params):
