@@ -4418,5 +4418,43 @@ globals().update(
 # These are defined unconditionally because they are used in
 # typing-extensions itself.
 Generic = typing.Generic
+
+# Python 3.9-3.12 do not ask type parameters to fill in their defaults when
+# specializing a generic alias.  TypeVarLike implementations above expose the
+# same substitution hook used by newer versions of typing, so apply it before
+# delegating to the standard library alias implementation.
+if not _PEP_696_IMPLEMENTED:
+    _generic_alias_getitem = typing._GenericAlias.__getitem__
+
+    @typing._tp_cache
+    def _generic_alias_getitem_with_defaults(self, params):
+        if not isinstance(params, tuple):
+            params = (params,)
+
+        for param in self.__parameters__:
+            prepare = getattr(param, "__typing_prepare_subst__", None)
+            if prepare is not None:
+                params = prepare(self, params)
+
+        return _generic_alias_getitem(self, params)
+
+    typing._GenericAlias.__getitem__ = _generic_alias_getitem_with_defaults
+
+    _generic_class_getitem = typing.Generic.__dict__["__class_getitem__"].__func__
+
+    @typing._tp_cache
+    def _generic_class_getitem_with_defaults(cls, params):
+        if not isinstance(params, tuple):
+            params = (params,)
+
+        for param in getattr(cls, "__parameters__", ()):
+            prepare = getattr(param, "__typing_prepare_subst__", None)
+            if prepare is not None:
+                params = prepare(cls, params)
+
+        return _generic_class_getitem(cls, params)
+
+    typing.Generic.__class_getitem__ = classmethod(_generic_class_getitem_with_defaults)
+
 ForwardRef = typing.ForwardRef
 Annotated = typing.Annotated
